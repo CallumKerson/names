@@ -1,0 +1,19 @@
+{
+  "plugins": ["typescript"],
+  "jsPlugins": ["eslint-plugin-perfectionist"],
+  "settings": {
+    "typescript": {
+      "project": "./tsconfig.app.json"
+    }
+  },
+  "categories": {
+    "correctness": "error",
+    "suspicious": "error",
+    "pedantic": "warn",
+    "perf": "error",
+    "style": "off"
+  },
+  "rules": {
+    "sort-imports": "off"
+  }
+}

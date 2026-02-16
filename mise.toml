@@ -1,2 +1,38 @@
 [tools]
-uv = "0.9.13"
+"npm:oxfmt" = "latest"
+"npm:oxlint-tsgolint" = "latest"
+oxlint = "latest"
+pnpm = "latest"
+
+[tasks.install]
+run = "pnpm install"
+sources = ["package.json", "pnpm-lock.json"]
+
+[tasks.dev]
+run = "pnpm vite dev"
+depends = ["install"]
+
+[tasks."process-data"]
+run = "pnpm tsx scripts/process-names-data.ts"
+depends = ["install"]
+sources = ["scripts/process-names-data.ts", "data/babynames1996to2024.xlsx"]
+outputs = ["public/data/names-*.json"]
+
+[tasks."types"]
+run = "pnpm vue-tsc --build"
+depends = ["install"]
+
+[tasks."build"]
+run = "pnpm vite build"
+depends = ["install", "process-data", "types"]
+
+[tasks.fmt]
+run = "oxfmt"
+
+[tasks.lint]
+depends = ["install", "types"]
+run = "oxlint --type-aware --type-check"
+
+[tasks.lint-fix]
+depends = ["install", "types"]
+run = "oxlint --type-aware --type-check --fix"
