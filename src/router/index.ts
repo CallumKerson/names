@@ -15,8 +15,13 @@ const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   routes: [
     {
+      component: () => import("@/pages/popular-page.vue"),
+      name: "browse",
       path: "/",
-      redirect: "/score",
+    },
+    {
+      path: "/popular",
+      redirect: "/",
     },
     {
       component: () => import("@/pages/score-page.vue"),
@@ -25,16 +30,16 @@ const router = createRouter({
       path: "/score",
     },
     {
-      component: () => import("@/pages/popular-page.vue"),
-      meta: { title: "popular" },
-      name: "popular",
-      path: "/popular",
-    },
-    {
       component: () => import("@/pages/nearest-page.vue"),
       meta: { title: "nearest" },
       name: "nearest",
       path: "/nearest",
+    },
+    {
+      component: () => import("@/pages/stats-page.vue"),
+      meta: { title: "stats" },
+      name: "stats",
+      path: "/stats",
     },
     {
       component: () => import("@/pages/name-lookup-page.vue"),

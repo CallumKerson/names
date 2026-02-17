@@ -28,7 +28,7 @@ function getCategoryColor(genderScore: number): string {
 function goToPopularPage(rank: number, filter?: "girls" | "boys") {
   const page = Math.ceil(rank / 100);
   router.push({
-    name: "popular",
+    name: "browse",
     query: {
       f: filter,
       highlight: props.name.name,

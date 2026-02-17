@@ -18,6 +18,13 @@ const isActive = (path: string): boolean => route.path === path;
           <NameSearch />
           <nav class="nav-menu">
             <RouterLink
+              to="/"
+              class="nav-link"
+              :class="{ active: isActive('/') }"
+            >
+              Browse
+            </RouterLink>
+            <RouterLink
               to="/score"
               class="nav-link"
               :class="{ active: isActive('/score') }"
@@ -25,18 +32,18 @@ const isActive = (path: string): boolean => route.path === path;
               Score
             </RouterLink>
             <RouterLink
-              to="/popular"
-              class="nav-link"
-              :class="{ active: isActive('/popular') }"
-            >
-              Popular
-            </RouterLink>
-            <RouterLink
               to="/nearest"
               class="nav-link"
               :class="{ active: isActive('/nearest') }"
             >
               Nearest
+            </RouterLink>
+            <RouterLink
+              to="/stats"
+              class="nav-link"
+              :class="{ active: isActive('/stats') }"
+            >
+              Stats
             </RouterLink>
           </nav>
         </div>
