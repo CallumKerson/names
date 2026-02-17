@@ -1,14 +1,23 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, shallowRef } from "vue";
 import type { NameDataComputed } from "@/models/types";
-import { useNamesData } from "@/composables/useNamesData";
+import { getYearlyDataset, useNamesData } from "@/composables/useNamesData";
 import {
+  computeGenderScoreChanges,
+  computePopularityChanges,
+  type GenderScoreChange,
   getFeminineNames,
   getMasculineNames,
   getNeutralNames,
   getTopNames,
   findClosestToScore,
+  type PopularityChange,
 } from "@/utils/calculations";
+import {
+  concentrationDataset,
+  concentrationOptions,
+  samplePoints,
+} from "@/utils/concentration";
 import {
   formatGenderScore,
   formatNumber,
@@ -24,7 +33,6 @@ import {
   PointElement,
   Title,
   Tooltip,
-  type TooltipItem,
 } from "chart.js";
 import { Line } from "vue-chartjs";
 
@@ -45,6 +53,40 @@ const loadError = ref<string | null>(null);
 const allNames = shallowRef<NameDataComputed[]>([]);
 const yearRange = ref("");
 
+const yearlyLoading = ref(false);
+const girlsRisers = shallowRef<PopularityChange[]>([]);
+const girlsFallers = shallowRef<PopularityChange[]>([]);
+const boysRisers = shallowRef<PopularityChange[]>([]);
+const boysFallers = shallowRef<PopularityChange[]>([]);
+const towardsFeminine = shallowRef<GenderScoreChange[]>([]);
+const towardsMasculine = shallowRef<GenderScoreChange[]>([]);
+const towardsNeutral = shallowRef<GenderScoreChange[]>([]);
+
+async function loadYearlyChanges() {
+  yearlyLoading.value = true;
+  try {
+    const yearly = await getYearlyDataset();
+    const { startYear, endYear } = yearly.metadata;
+
+    const girls = computePopularityChanges(yearly, startYear, endYear, "girls");
+    girlsRisers.value = girls.risers;
+    girlsFallers.value = girls.fallers;
+
+    const boys = computePopularityChanges(yearly, startYear, endYear, "boys");
+    boysRisers.value = boys.risers;
+    boysFallers.value = boys.fallers;
+
+    const scores = computeGenderScoreChanges(yearly, startYear, endYear);
+    towardsFeminine.value = scores.towardsFeminine;
+    towardsMasculine.value = scores.towardsMasculine;
+    towardsNeutral.value = scores.towardsNeutral;
+  } catch (error) {
+    console.error("Failed to load yearly data for stats:", error);
+  } finally {
+    yearlyLoading.value = false;
+  }
+}
+
 onMounted(async () => {
   loading.value = true;
   loadError.value = null;
@@ -59,6 +101,8 @@ onMounted(async () => {
   } finally {
     loading.value = false;
   }
+
+  loadYearlyChanges();
 });
 
 // Overview
@@ -181,50 +225,6 @@ const exclusiveNames = computed(
   () => allNames.value.length - bothGenderNames.value,
 );
 
-// Name concentration chart
-const samplePoints = [
-  10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 150, 200, 250, 300, 350, 400, 450,
-  500, 600, 700, 800, 900, 1000, 2000, 5000,
-];
-
-function cumulativePercentages(
-  sorted: NameDataComputed[],
-  points: number[],
-  getter: (n: NameDataComputed) => number,
-  total: number,
-): number[] {
-  const result: number[] = [];
-  let cumulative = 0;
-  let idx = 0;
-  for (const n of points) {
-    while (idx < n && idx < sorted.length) {
-      cumulative += getter(sorted[idx]!);
-      idx++;
-    }
-    result.push(total > 0 ? (cumulative / total) * 100 : 0);
-  }
-  return result;
-}
-
-function concentrationDataset(
-  label: string,
-  sorted: NameDataComputed[],
-  points: number[],
-  getter: (n: NameDataComputed) => number,
-  total: number,
-  color: string,
-) {
-  return {
-    label,
-    data: cumulativePercentages(sorted, points, getter, total),
-    borderColor: color,
-    backgroundColor: `${color}20`,
-    pointRadius: 3,
-    pointHoverRadius: 5,
-    tension: 0.3,
-  };
-}
-
 const concentrationData = computed<ChartData<"line">>(() => {
   if (allNames.value.length === 0) {
     return { labels: [], datasets: [] };
@@ -265,38 +265,6 @@ const concentrationData = computed<ChartData<"line">>(() => {
     ],
   };
 });
-
-const concentrationOptions = {
-  responsive: true,
-  maintainAspectRatio: true,
-  plugins: {
-    title: {
-      display: true,
-      text: "Name Concentration by Gender",
-      font: { size: 14, weight: "bold" as const },
-    },
-    legend: {
-      display: true,
-      position: "top" as const,
-    },
-    tooltip: {
-      callbacks: {
-        label: (ctx: TooltipItem<"line">) =>
-          `${ctx.dataset.label}: ${(ctx.parsed.y ?? 0).toFixed(1)}%`,
-      },
-    },
-  },
-  scales: {
-    x: {
-      title: { display: true, text: "Number of names (top N)" },
-    },
-    y: {
-      title: { display: true, text: "% of all babies" },
-      min: 0,
-      max: 100,
-    },
-  },
-};
 </script>
 
 <template>
@@ -376,6 +344,139 @@ const concentrationOptions = {
             }}%)
           </RouterLink>
         </div>
+      </section>
+
+      <!-- Popularity Changes -->
+      <section class="section">
+        <h2>Popularity Changes (1996 vs 2024)</h2>
+        <p class="section-note">
+          Among names with at least 100 uses in both years
+        </p>
+        <div v-if="yearlyLoading" class="loading">Loading yearly data...</div>
+        <template v-else>
+          <div class="stats-grid">
+            <div v-if="girlsRisers[0]" class="stat-card">
+              <span class="stat-label girls-label">Biggest Rise (Girls)</span>
+              <RouterLink
+                :to="`/name/${girlsRisers[0].name}`"
+                class="stat-value name-link female"
+              >
+                {{ girlsRisers[0].name }}
+              </RouterLink>
+              <span class="stat-detail">
+                Up {{ formatNumber(girlsRisers[0].change) }} places (#{{
+                  girlsRisers[0].rankStart
+                }}
+                → #{{ girlsRisers[0].rankEnd }})
+              </span>
+            </div>
+            <div v-if="girlsFallers[0]" class="stat-card">
+              <span class="stat-label girls-label">Biggest Drop (Girls)</span>
+              <RouterLink
+                :to="`/name/${girlsFallers[0].name}`"
+                class="stat-value name-link female"
+              >
+                {{ girlsFallers[0].name }}
+              </RouterLink>
+              <span class="stat-detail">
+                Down {{ formatNumber(Math.abs(girlsFallers[0].change)) }} places
+                (#{{ girlsFallers[0].rankStart }} → #{{
+                  girlsFallers[0].rankEnd
+                }})
+              </span>
+            </div>
+            <div v-if="boysRisers[0]" class="stat-card">
+              <span class="stat-label boys-label">Biggest Rise (Boys)</span>
+              <RouterLink
+                :to="`/name/${boysRisers[0].name}`"
+                class="stat-value name-link male"
+              >
+                {{ boysRisers[0].name }}
+              </RouterLink>
+              <span class="stat-detail">
+                Up {{ formatNumber(boysRisers[0].change) }} places (#{{
+                  boysRisers[0].rankStart
+                }}
+                → #{{ boysRisers[0].rankEnd }})
+              </span>
+            </div>
+            <div v-if="boysFallers[0]" class="stat-card">
+              <span class="stat-label boys-label">Biggest Drop (Boys)</span>
+              <RouterLink
+                :to="`/name/${boysFallers[0].name}`"
+                class="stat-value name-link male"
+              >
+                {{ boysFallers[0].name }}
+              </RouterLink>
+              <span class="stat-detail">
+                Down {{ formatNumber(Math.abs(boysFallers[0].change)) }} places
+                (#{{ boysFallers[0].rankStart }} → #{{
+                  boysFallers[0].rankEnd
+                }})
+              </span>
+            </div>
+          </div>
+        </template>
+      </section>
+
+      <!-- Gender Score Changes -->
+      <section class="section">
+        <h2>Gender Score Changes (1996 vs 2024)</h2>
+        <p class="section-note">
+          Among names used for both genders with at least 50 total uses in both
+          years
+        </p>
+        <div v-if="yearlyLoading" class="loading">Loading yearly data...</div>
+        <template v-else>
+          <div class="stats-grid">
+            <div v-if="towardsFeminine[0]" class="stat-card">
+              <span class="stat-label girls-label"
+                >Biggest Shift Towards Feminine</span
+              >
+              <RouterLink
+                :to="`/name/${towardsFeminine[0].name}`"
+                class="stat-value name-link"
+                :class="getGenderColor(towardsFeminine[0].scoreEnd)"
+              >
+                {{ towardsFeminine[0].name }}
+              </RouterLink>
+              <span class="stat-detail">
+                {{ formatGenderScore(towardsFeminine[0].scoreStart) }} →
+                {{ formatGenderScore(towardsFeminine[0].scoreEnd) }}
+              </span>
+            </div>
+            <div v-if="towardsMasculine[0]" class="stat-card">
+              <span class="stat-label boys-label"
+                >Biggest Shift Towards Masculine</span
+              >
+              <RouterLink
+                :to="`/name/${towardsMasculine[0].name}`"
+                class="stat-value name-link"
+                :class="getGenderColor(towardsMasculine[0].scoreEnd)"
+              >
+                {{ towardsMasculine[0].name }}
+              </RouterLink>
+              <span class="stat-detail">
+                {{ formatGenderScore(towardsMasculine[0].scoreStart) }} →
+                {{ formatGenderScore(towardsMasculine[0].scoreEnd) }}
+              </span>
+            </div>
+            <div v-if="towardsNeutral[0]" class="stat-card">
+              <span class="stat-label">Biggest Shift Towards Neutral</span>
+              <RouterLink
+                :to="`/name/${towardsNeutral[0].name}`"
+                class="stat-value name-link"
+                :class="getGenderColor(towardsNeutral[0].scoreEnd)"
+              >
+                {{ towardsNeutral[0].name }}
+              </RouterLink>
+              <span class="stat-detail">
+                {{ formatGenderScore(towardsNeutral[0].scoreStart) }} →
+                {{ formatGenderScore(towardsNeutral[0].scoreEnd) }}
+              </span>
+            </div>
+          </div>
+        </template>
       </section>
 
       <!-- Superlatives -->

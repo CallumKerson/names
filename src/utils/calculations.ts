@@ -2,7 +2,12 @@
  * Utility functions for gender score calculations and rankings.
  */
 
-import type { NameData, NameDataComputed, Ranks } from "@/models/types";
+import type {
+  NameData,
+  NameDataComputed,
+  NamesYearlyDataset,
+  Ranks,
+} from "@/models/types";
 
 /**
  * Calculate gender score for a name.
@@ -136,6 +141,136 @@ export function getMasculineNames(
  */
 export function getNeutralNames(names: NameDataComputed[]): NameDataComputed[] {
   return filterByScoreRange(names, -0.3, 0.3);
+}
+
+export interface PopularityChange {
+  name: string;
+  rankStart: number;
+  rankEnd: number;
+  change: number;
+}
+
+function buildRankMap(counts: [string, number][]): Map<string, number> {
+  counts.sort((a, b) => b[1] - a[1]);
+  const ranks = new Map<string, number>();
+  for (let i = 0; i < counts.length; i++) {
+    ranks.set(counts[i]![0], i + 1);
+  }
+  return ranks;
+}
+
+/**
+ * Compute biggest popularity risers and fallers for a given gender between two years.
+ */
+export function computePopularityChanges(
+  yearlyData: NamesYearlyDataset,
+  startYear: number,
+  endYear: number,
+  gender: "girls" | "boys",
+  minCount: number = 100,
+): { risers: PopularityChange[]; fallers: PopularityChange[] } {
+  const startCounts: [string, number][] = [];
+  const endCounts: [string, number][] = [];
+
+  for (const [name, record] of Object.entries(yearlyData.data)) {
+    const startCount = record[gender][startYear] ?? 0;
+    const endCount = record[gender][endYear] ?? 0;
+    if (startCount >= minCount) startCounts.push([name, startCount]);
+    if (endCount >= minCount) endCounts.push([name, endCount]);
+  }
+
+  const startRanks = buildRankMap(startCounts);
+  const endRanks = buildRankMap(endCounts);
+
+  const changes: PopularityChange[] = [];
+  for (const [name, rankStart] of startRanks) {
+    const rankEnd = endRanks.get(name);
+    if (rankEnd !== undefined) {
+      // Positive change = rose in rank
+      changes.push({ name, rankStart, rankEnd, change: rankStart - rankEnd });
+    }
+  }
+
+  const sorted = [...changes].sort((a, b) => b.change - a.change);
+  return {
+    risers: sorted.slice(0, 5),
+    fallers: sorted.slice(-5).reverse(),
+  };
+}
+
+export interface GenderScoreChange {
+  name: string;
+  scoreStart: number;
+  scoreEnd: number;
+  change: number;
+}
+
+function collectGenderScoreChanges(
+  yearlyData: NamesYearlyDataset,
+  startYear: number,
+  endYear: number,
+  minCount: number,
+): GenderScoreChange[] {
+  const changes: GenderScoreChange[] = [];
+
+  for (const [name, record] of Object.entries(yearlyData.data)) {
+    const girlsStart = record.girls[startYear] ?? 0;
+    const boysStart = record.boys[startYear] ?? 0;
+    const girlsEnd = record.girls[endYear] ?? 0;
+    const boysEnd = record.boys[endYear] ?? 0;
+    const totalStart = girlsStart + boysStart;
+    const totalEnd = girlsEnd + boysEnd;
+
+    if (totalStart < minCount || totalEnd < minCount) continue;
+    // Must be used for both genders in at least one of the years
+    const bothStart = girlsStart > 0 && boysStart > 0;
+    const bothEnd = girlsEnd > 0 && boysEnd > 0;
+    if (!bothStart && !bothEnd) continue;
+
+    const scoreStart = (girlsStart - boysStart) / totalStart;
+    const scoreEnd = (girlsEnd - boysEnd) / totalEnd;
+    changes.push({ name, scoreStart, scoreEnd, change: scoreEnd - scoreStart });
+  }
+
+  return changes;
+}
+
+/**
+ * Compute biggest gender score shifts between two years.
+ */
+export function computeGenderScoreChanges(
+  yearlyData: NamesYearlyDataset,
+  startYear: number,
+  endYear: number,
+  minCount: number = 50,
+): {
+  towardsFeminine: GenderScoreChange[];
+  towardsMasculine: GenderScoreChange[];
+  towardsNeutral: GenderScoreChange[];
+} {
+  const changes = collectGenderScoreChanges(
+    yearlyData,
+    startYear,
+    endYear,
+    minCount,
+  );
+  const byChange = [...changes].sort((a, b) => b.change - a.change);
+
+  const towardsNeutral = [...changes]
+    .filter((c) => Math.abs(c.scoreEnd) < Math.abs(c.scoreStart))
+    .sort(
+      (a, b) =>
+        Math.abs(a.scoreEnd) -
+        Math.abs(a.scoreStart) -
+        (Math.abs(b.scoreEnd) - Math.abs(b.scoreStart)),
+    )
+    .slice(0, 5);
+
+  return {
+    towardsFeminine: byChange.slice(0, 5),
+    towardsMasculine: byChange.slice(-5).reverse(),
+    towardsNeutral,
+  };
 }
 
 /**

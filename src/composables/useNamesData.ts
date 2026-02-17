@@ -256,6 +256,13 @@ export async function getYearlyRanks(
 }
 
 /**
+ * Get the full yearly dataset for bulk analysis.
+ */
+export function getYearlyDataset(): Promise<NamesYearlyDataset> {
+  return loadYearlyDataset();
+}
+
+/**
  * Preload all data and compute rankings to improve navigation performance.
  */
 export async function preloadData(): Promise<void> {
