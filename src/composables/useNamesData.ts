@@ -1,6 +1,7 @@
 import { computed, markRaw, ref } from "vue";
 
 import type {
+  NameData,
   NameDataComputed,
   NamesDataset,
   NamesYearlyDataset,
@@ -9,12 +10,12 @@ import type {
 
 import { computeNameData, computeRankings } from "@/utils/calculations";
 
-let aggregateData: NamesDataset | undefined;
-let yearlyData: NamesYearlyDataset | undefined;
-let yearlyRanksData: NamesYearlyDataset | undefined;
-let computedAllNames: NameDataComputed[] | undefined;
+let aggregatePromise: Promise<NamesDataset> | undefined;
+let yearlyPromise: Promise<NamesYearlyDataset> | undefined;
+let yearlyRanksPromise: Promise<NamesYearlyDataset> | undefined;
+let allNamesPromise: Promise<NameDataComputed[]> | undefined;
 let computedRankings: Map<string, Ranks> | undefined;
-const yearlyLoadedNames = new Set<string>();
+const yearlyLoadedNames = new Map<string, Promise<void>>();
 
 function isNamesDataset(data: unknown): data is NamesDataset {
   if (
@@ -55,55 +56,77 @@ function isNamesYearlyDataset(data: unknown): data is NamesYearlyDataset {
 const isLoading = ref(false);
 const loadError = ref<string | null>(null);
 
-async function loadAggregateData(): Promise<NamesDataset> {
-  if (aggregateData) {
-    return aggregateData;
-  }
-
-  try {
-    const response = await fetch(
-      `${import.meta.env.BASE_URL}data/names-aggregate.json`,
-    );
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}`);
+function loadAggregateData(): Promise<NamesDataset> {
+  return (aggregatePromise ??= (async () => {
+    try {
+      const response = await fetch(
+        `${import.meta.env.BASE_URL}data/names-aggregate.json`,
+      );
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+      const data = (await response.json()) as unknown;
+      if (!isNamesDataset(data)) {
+        throw new Error("Invalid aggregate data structure");
+      }
+      return markRaw(data);
+    } catch (error: unknown) {
+      aggregatePromise = undefined;
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Failed to load aggregate data";
+      loadError.value = message;
+      throw new Error(message, { cause: error });
     }
-    const data = (await response.json()) as unknown;
-    if (!isNamesDataset(data)) {
-      throw new Error("Invalid aggregate data structure");
-    }
-    aggregateData = markRaw(data);
-    return aggregateData;
-  } catch (error: unknown) {
-    const message =
-      error instanceof Error ? error.message : "Failed to load aggregate data";
-    loadError.value = message;
-    throw new Error(message, { cause: error });
-  }
+  })());
 }
 
-async function loadYearlyDataset(): Promise<NamesYearlyDataset> {
-  if (yearlyData) {
-    return yearlyData;
-  }
+function loadYearlyDataset(): Promise<NamesYearlyDataset> {
+  return (yearlyPromise ??= (async () => {
+    try {
+      const response = await fetch(
+        `${import.meta.env.BASE_URL}data/names-yearly.json`,
+      );
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+      const data = (await response.json()) as unknown;
+      if (!isNamesYearlyDataset(data)) {
+        throw new Error("Invalid yearly data structure");
+      }
+      return markRaw(data);
+    } catch (error: unknown) {
+      yearlyPromise = undefined;
+      const message =
+        error instanceof Error ? error.message : "Failed to load yearly data";
+      loadError.value = message;
+      throw new Error(message, { cause: error });
+    }
+  })());
+}
 
-  try {
-    const response = await fetch(
-      `${import.meta.env.BASE_URL}data/names-yearly.json`,
-    );
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}`);
+async function loadYearlyForName(
+  name: string,
+  nameData: NameData,
+): Promise<void> {
+  const yearly = await loadYearlyDataset();
+  const yearlyRecord = yearly.data[name];
+
+  if (yearlyRecord) {
+    const girlsYearly: { year: number; count: number }[] = [];
+    const boysYearly: { year: number; count: number }[] = [];
+
+    for (const [yearStr, count] of Object.entries(yearlyRecord.girls)) {
+      girlsYearly.push({ count: count, year: parseInt(yearStr, 10) });
     }
-    const data = (await response.json()) as unknown;
-    if (!isNamesYearlyDataset(data)) {
-      throw new Error("Invalid yearly data structure");
+
+    for (const [yearStr, count] of Object.entries(yearlyRecord.boys)) {
+      boysYearly.push({ count: count, year: parseInt(yearStr, 10) });
     }
-    yearlyData = markRaw(data);
-    return yearlyData;
-  } catch (error: unknown) {
-    const message =
-      error instanceof Error ? error.message : "Failed to load yearly data";
-    loadError.value = message;
-    throw new Error(message, { cause: error });
+
+    nameData.girlsYearly = girlsYearly.sort((a, b) => a.year - b.year);
+    nameData.boysYearly = boysYearly.sort((a, b) => a.year - b.year);
   }
 }
 
@@ -119,29 +142,11 @@ export async function getName(name: string): Promise<NameDataComputed | null> {
       return null;
     }
 
-    // Lazy load yearly data for this name
+    // Lazy load yearly data for this name, deduplicating concurrent calls
     if (!yearlyLoadedNames.has(name)) {
-      const yearly = await loadYearlyDataset();
-      const yearlyRecord = yearly.data[name];
-
-      if (yearlyRecord) {
-        const girlsYearly: { year: number; count: number }[] = [];
-        const boysYearly: { year: number; count: number }[] = [];
-
-        for (const [yearStr, count] of Object.entries(yearlyRecord.girls)) {
-          girlsYearly.push({ count: count, year: parseInt(yearStr, 10) });
-        }
-
-        for (const [yearStr, count] of Object.entries(yearlyRecord.boys)) {
-          boysYearly.push({ count: count, year: parseInt(yearStr, 10) });
-        }
-
-        nameData.girlsYearly = girlsYearly.sort((a, b) => a.year - b.year);
-        nameData.boysYearly = boysYearly.sort((a, b) => a.year - b.year);
-      }
-
-      yearlyLoadedNames.add(name);
+      yearlyLoadedNames.set(name, loadYearlyForName(name, nameData));
     }
+    await yearlyLoadedNames.get(name);
 
     return computeNameData(nameData);
   } finally {
@@ -152,23 +157,18 @@ export async function getName(name: string): Promise<NameDataComputed | null> {
 /**
  * Get all names with computed properties.
  */
-export async function getAllNames(): Promise<NameDataComputed[]> {
-  if (computedAllNames) {
-    return computedAllNames;
-  }
+export function getAllNames(): Promise<NameDataComputed[]> {
+  return (allNamesPromise ??= (async () => {
+    isLoading.value = true;
+    loadError.value = null;
 
-  isLoading.value = true;
-  loadError.value = null;
-
-  try {
-    const aggregate = await loadAggregateData();
-    computedAllNames = markRaw(
-      Object.values(aggregate.names).map(computeNameData),
-    );
-    return computedAllNames;
-  } finally {
-    isLoading.value = false;
-  }
+    try {
+      const aggregate = await loadAggregateData();
+      return markRaw(Object.values(aggregate.names).map(computeNameData));
+    } finally {
+      isLoading.value = false;
+    }
+  })());
 }
 
 /**
@@ -193,7 +193,7 @@ export async function getRankedNames(
   const allNames = await getAllNames();
   const rankMap = await getRankingMap();
 
-  let sorted = allNames.sort((a, b) => b.totalCount - a.totalCount);
+  let sorted = [...allNames].sort((a, b) => b.totalCount - a.totalCount);
   if (topN > 0) {
     sorted = sorted.slice(0, topN);
   }
@@ -212,32 +212,30 @@ export async function getMetadata() {
   return aggregate.metadata;
 }
 
-async function loadYearlyRanks(): Promise<NamesYearlyDataset> {
-  if (yearlyRanksData) {
-    return yearlyRanksData;
-  }
-
-  try {
-    const response = await fetch(
-      `${import.meta.env.BASE_URL}data/names-yearly-ranks.json`,
-    );
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}`);
+function loadYearlyRanks(): Promise<NamesYearlyDataset> {
+  return (yearlyRanksPromise ??= (async () => {
+    try {
+      const response = await fetch(
+        `${import.meta.env.BASE_URL}data/names-yearly-ranks.json`,
+      );
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+      const data = (await response.json()) as unknown;
+      if (!isNamesYearlyDataset(data)) {
+        throw new Error("Invalid yearly ranks data structure");
+      }
+      return markRaw(data);
+    } catch (error: unknown) {
+      yearlyRanksPromise = undefined;
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Failed to load yearly ranks data";
+      loadError.value = message;
+      throw new Error(message, { cause: error });
     }
-    const data = (await response.json()) as unknown;
-    if (!isNamesYearlyDataset(data)) {
-      throw new Error("Invalid yearly ranks data structure");
-    }
-    yearlyRanksData = markRaw(data);
-    return data;
-  } catch (error: unknown) {
-    const message =
-      error instanceof Error
-        ? error.message
-        : "Failed to load yearly ranks data";
-    loadError.value = message;
-    throw new Error(message, { cause: error });
-  }
+  })());
 }
 
 /**

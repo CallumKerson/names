@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, shallowRef } from "vue";
+import { computed, onMounted, onBeforeUnmount, ref, shallowRef } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { findClosestToScore, getTopNames } from "@/utils/calculations";
 import type { NameDataComputed, Ranks } from "@/models/types";
@@ -43,6 +43,10 @@ const closestNames = computed(() => {
 });
 
 let queryParamTimer: ReturnType<typeof setTimeout> | undefined;
+
+onBeforeUnmount(() => {
+  clearTimeout(queryParamTimer);
+});
 
 function syncQueryParams() {
   clearTimeout(queryParamTimer);
