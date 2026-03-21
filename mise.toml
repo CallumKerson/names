@@ -1,30 +1,37 @@
 [tools]
-"npm:oxfmt" = "latest"
+hk                    = "latest"
+"npm:oxfmt"           = "latest"
 "npm:oxlint-tsgolint" = "latest"
-oxlint = "latest"
-pnpm = "latest"
-rumdl = "latest"
+oxlint                = "latest"
+pnpm                  = "latest"
+rumdl                 = "latest"
+pkl                   = "latest"
+typos                 = "latest"
+taplo                 = "latest"
+
+[settings]
+lockfile = true
 
 [tasks.install]
-run = "pnpm install"
+run     = "pnpm install"
 sources = ["package.json", "pnpm-lock.json"]
 
 [tasks.dev]
-run = "pnpm vite dev"
+run     = "pnpm vite dev"
 depends = ["install"]
 
 [tasks."process-data"]
-run = "pnpm tsx scripts/process-names-data.ts"
+run     = "pnpm tsx scripts/process-names-data.ts"
 depends = ["install"]
 sources = ["scripts/process-names-data.ts", "data/babynames1996to2024.xlsx"]
 outputs = ["public/data/names-*.json"]
 
 [tasks."types"]
-run = "pnpm vue-tsc --build"
+run     = "pnpm vue-tsc --build"
 depends = ["install"]
 
 [tasks."build"]
-run = "pnpm vite build"
+run     = "pnpm vite build"
 depends = ["install", "process-data", "types"]
 
 [tasks.fmt]
@@ -32,8 +39,8 @@ run = "oxfmt"
 
 [tasks.lint]
 depends = ["install", "types"]
-run = "oxlint --type-aware --type-check"
+run     = "oxlint --type-aware --type-check"
 
 [tasks.lint-fix]
 depends = ["install", "types"]
-run = "oxlint --type-aware --type-check --fix"
+run     = "oxlint --type-aware --type-check --fix"
