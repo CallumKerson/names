@@ -3,6 +3,7 @@
 "npm:oxlint-tsgolint" = "latest"
 oxlint = "latest"
 pnpm = "latest"
+rumdl = "latest"
 
 [tasks.install]
 run = "pnpm install"

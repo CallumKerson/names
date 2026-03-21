@@ -1,10 +1,13 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this
+repository.
 
 ## Project Overview
 
-Vue 3 + TypeScript web application that analyzes UK baby name data (1996-2024) and calculates gender scores. The gender score ranges from -1.0 (100% masculine) to +1.0 (100% feminine), calculated as `(girls_total - boys_total) / total_count`.
+Vue 3 + TypeScript web application that analyzes UK baby name data (1996-2024) and calculates gender
+scores. The gender score ranges from -1.0 (100% masculine) to +1.0 (100% feminine), calculated as
+`(girls_total - boys_total) / total_count`.
 
 ## Development Commands
 
@@ -14,7 +17,8 @@ This project uses [mise](https://mise.jdx.dev/) for task management:
 - `mise run build` - Build for production (includes data processing and type checking)
 - `mise run process-data` - Process CSV files into JSON format
 - `mise run fmt` - Format code with oxfmt
-- `mise run lint` - Lint with oxlint (type-aware, auto-fix enabled)
+- `mise run lint` - Lint with oxlint (type-aware)
+- `mise run lint-fix` - Lint with oxlint (type-aware, auto-fix enabled)
 - `mise run types` - Run Vue type checking only
 - `pnpm install` - Install dependencies (or `mise run install`)
 
@@ -26,14 +30,17 @@ The project has a two-stage data architecture optimized for performance:
 
 ### 1. Data Processing (Build-time)
 
-CSV files in `babynames1996to2024/` → `scripts/process-names-data.ts` → JSON files in `public/data/`:
+XLSX file `data/babynames1996to2024.xlsx` → `scripts/process-names-data.ts` → JSON files in
+`public/data/`:
 
-- **`names-aggregate.json`** (~300KB): Contains aggregate totals for all names (used for initial page loads)
+- **`names-aggregate.json`** (~300KB): Contains aggregate totals for all names (used for initial
+  page loads)
 - **`names-yearly.json`** (~8MB): Contains year-by-year breakdowns (loaded on-demand for charts)
+- **`names-yearly-ranks.json`**: Pre-computed per-year rankings by total count
 
 The processing script:
 
-- Converts ONS CSV data into optimized JSON
+- Converts ONS XLSX data into optimized JSON
 - Stores names with original capitalisation (e.g. "Oliver", "Aadam") — not lowercased
 - Handles privacy redactions ('S' for counts ≤2) by converting to null
 - Merges boys and girls data into unified records
@@ -46,37 +53,48 @@ The processing script:
 2. **Aggregate-first loading**: Small aggregate file loads immediately
 3. **Lazy yearly data**: Large yearly file only loaded when charts are needed, then cached
 
-This pattern keeps initial page loads fast (<1s) while still providing detailed historical charts when requested.
+This pattern keeps initial page loads fast (<1s) while still providing detailed historical charts
+when requested.
 
 ## Code Architecture
 
 ### Router Structure
 
-Five main routes (defined in `src/router/index.ts`):
+Seven routes (defined in `src/router/index.ts`):
 
-- `/score` - Filter names by gender score range (default page)
-- `/popular` - Top names by total count
+- `/` - Browse top names by total count (default page, name: "browse")
+- `/popular` - Redirects to `/`
+- `/score` - Filter names by gender score range
 - `/nearest` - Names closest to a target score
+- `/stats` - Dataset analytics and superlatives
 - `/name/:name` - Individual name detail with charts
 - `/name/:name/year/:year` - Specific year breakdown
 
 ### Key Utilities
 
-- **`src/utils/calculations.ts`**: Pure functions for gender score calculations, rankings, and filtering
+- **`src/utils/calculations.ts`**: Pure functions for gender score calculations, rankings, and
+  filtering
   - `calculateGenderScore()` - Core formula implementation
   - `computeRankings()` - Three-dimensional ranking (overall, girls, boys)
   - Filter helpers for feminine/masculine/neutral name categorization
 
-- **`src/utils/formatters.ts`**: Display formatting functions
+- **`src/utils/formatters.ts`**: Display formatting functions (number/score/percent formatting,
+  gender category/colour helpers)
+
+- **`src/utils/concentration.ts`**: Name concentration analysis (Lorenz curve style datasets for
+  Chart.js)
 
 ### Component Organization
 
 - **Pages** (`src/pages/`): Route-level components
 - **Components** (`src/components/`): Reusable UI components
-  - `app-layout.vue` - Main layout wrapper
-  - `chart-container.vue` - Chart.js integration
-  - `names-table.vue` - Sortable name list display
-  - `score-slider.vue` - Interactive gender score filter
+  - `app-layout.vue` - Main layout wrapper with navbar and search
+  - `chart-container.vue` - Chart.js line chart with clickable points
+  - `names-table.vue` - Sortable name list with pagination support
+  - `name-stats-table.vue` - Individual name statistics grid with rank links
+  - `name-search.vue` - Real-time autocomplete search with keyboard navigation
+  - `breadcrumb-nav.vue` - Breadcrumb navigation (small/large variants)
+  - `score-slider.vue` - Interactive gender score filter with gradient
 
 ### Path Alias
 
@@ -108,8 +126,10 @@ Gender score colours used throughout the app:
 
 ## Important Notes
 
-- Names are stored with original capitalisation in the JSON data (e.g. "Oliver", "A'isha") — always use case-insensitive comparison when searching/filtering
+- Names are stored with original capitalisation in the JSON data (e.g. "Oliver", "A'isha") — always
+  use case-insensitive comparison when searching/filtering
 - Missing/redacted data is handled with null values (never 0)
 - Rankings break ties by frequency (higher count wins)
 - The `process-data` script must be run before building if CSV files change
-- Girls-first convention: throughout the codebase, girls/feminine properties and UI elements are ordered before boys/masculine
+- Girls-first convention: throughout the codebase, girls/feminine properties and UI elements are
+  ordered before boys/masculine
