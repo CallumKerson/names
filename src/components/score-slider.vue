@@ -184,4 +184,24 @@ const categoryColor = computed(() => {
 .feminine-label {
   color: #7c3aed;
 }
+
+@media (max-width: 768px) {
+  .slider-container {
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .slider-wrapper {
+    width: 100%;
+  }
+
+  .slider-input {
+    height: 8px;
+  }
+
+  .slider-display {
+    min-width: 0;
+    justify-content: center;
+  }
+}
 </style>
