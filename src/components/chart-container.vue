@@ -3,6 +3,7 @@ import {
   CategoryScale,
   type ChartData,
   type ChartDataset,
+  type ChartType,
   Chart as ChartJS,
   Legend,
   LineElement,
@@ -11,6 +12,8 @@ import {
   type ScriptableContext,
   Title,
   Tooltip,
+  type TooltipModel,
+  type TooltipPositionerFunction,
 } from "chart.js";
 import { computed } from "vue";
 import { Line } from "vue-chartjs";
@@ -24,6 +27,22 @@ ChartJS.register(
   Tooltip,
   Legend,
 );
+
+
+declare module "chart.js" {
+  interface TooltipPositionerMap {
+    topOfChart: TooltipPositionerFunction<ChartType>;
+  }
+}
+
+
+Tooltip.positioners.topOfChart = function (
+  this: TooltipModel<ChartType>,
+  _elements,
+  eventPosition,
+) {
+  return { x: eventPosition.x, y: this.chart.chartArea.top };
+};
 
 
 interface Props {
@@ -142,7 +161,12 @@ function buildBaseOptions(
         font: { size: 14 as number, weight: "bold" as const },
         text: title,
       },
-      tooltip: { callbacks: { afterLabel: getTooltipAfterLabel } },
+      tooltip: {
+        callbacks: { afterLabel: getTooltipAfterLabel },
+        position: (window.matchMedia("(pointer: coarse)").matches
+          ? "topOfChart"
+          : "average") as string,
+      },
     },
     responsive: true,
     scales: {
