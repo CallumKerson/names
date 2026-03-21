@@ -7,7 +7,6 @@ import type {
   NamesYearlyDataset,
   Ranks,
 } from "@/models/types";
-
 import { computeNameData, computeRankings } from "@/utils/calculations";
 
 let aggregatePromise: Promise<NamesDataset> | undefined;

@@ -2,5 +2,6 @@
   "printWidth": 80,
   "experimentalSortImports": {
     "enabled": true
-  }
+  },
+  "ignorePatterns": ["dist/**/*", "node_modules/**/*", "**/*.toml"]
 }

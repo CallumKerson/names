@@ -1,16 +1,17 @@
 <script setup lang="ts">
+import { computed, onMounted, ref, watch } from "vue";
+import { useRoute, useRouter } from "vue-router";
+
+import BreadcrumbNav from "@/components/breadcrumb-nav.vue";
+import ChartContainer from "@/components/chart-container.vue";
+import { useNamesData } from "@/composables/useNamesData";
+import type { NameDataComputed } from "@/models/types";
+import { calculateYearlyGenderScores } from "@/utils/calculations";
 import {
   formatGenderScore,
   formatNumber,
   getGenderCategory,
 } from "@/utils/formatters";
-import { useRoute, useRouter } from "vue-router";
-import { computed, onMounted, ref, watch } from "vue";
-import { calculateYearlyGenderScores } from "@/utils/calculations";
-import type { NameDataComputed } from "@/models/types";
-import { useNamesData } from "@/composables/useNamesData";
-import BreadcrumbNav from "@/components/breadcrumb-nav.vue";
-import ChartContainer from "@/components/chart-container.vue";
 
 interface YearStats {
   girlsCount: number;
@@ -21,10 +22,12 @@ interface YearStats {
   boysPercent: number;
 }
 
+
 interface PreviousYearStats {
   change: number;
   percentChange: number;
 }
+
 
 function getCategoryColor(genderScore: number): string {
   if (genderScore > 0.3) {
@@ -36,15 +39,18 @@ function getCategoryColor(genderScore: number): string {
   return "#F59E0B";
 }
 
+
 const route = useRoute();
 const router = useRouter();
 const { getName, getYearlyRanks } = useNamesData();
+
 
 const loading = ref(false);
 const loadError = ref<string | null>(null);
 const nameData = ref<NameDataComputed | null>(null);
 const year = ref<number | null>(null);
 const yearlyRanksMap = ref<Record<number, number>>({});
+
 
 const yearStats = computed((): YearStats | null => {
   if (!nameData.value || !year.value) return null;
@@ -75,6 +81,7 @@ const yearStats = computed((): YearStats | null => {
   };
 });
 
+
 const previousYearStats = computed((): PreviousYearStats | null => {
   if (!yearStats.value || !year.value || year.value === 1996) return null;
 
@@ -98,6 +105,7 @@ const previousYearStats = computed((): PreviousYearStats | null => {
   };
 });
 
+
 const breadcrumbs = computed(() => {
   if (!nameData.value || !year.value) return [];
 
@@ -111,6 +119,7 @@ const breadcrumbs = computed(() => {
     },
   ];
 });
+
 
 const popularityData = computed(() => {
   if (!nameData.value?.girlsYearly || !nameData.value?.boysYearly) {
@@ -137,6 +146,7 @@ const popularityData = computed(() => {
   );
 });
 
+
 const genderScoreData = computed(() => {
   if (!nameData.value?.girlsYearly || !nameData.value?.boysYearly) {
     return [];
@@ -156,12 +166,14 @@ const genderScoreData = computed(() => {
   return calculateYearlyGenderScores(girlsMap, boysMap);
 });
 
+
 const hasBothGenders = computed(() => {
   if (!nameData.value) return false;
   const girlsYearly = nameData.value.girlsYearly || [];
   const boysYearly = nameData.value.boysYearly || [];
   return girlsYearly.length > 0 && boysYearly.length > 0;
 });
+
 
 const rankDataMap = computed(() => {
   if (!yearlyRanksMap.value || Object.keys(yearlyRanksMap.value).length === 0) {
@@ -170,17 +182,21 @@ const rankDataMap = computed(() => {
   return yearlyRanksMap.value;
 });
 
+
 function parseRouteParams(): { name: string; year: number } | null {
   const encodedName = route.params.name;
   const yearParam = route.params.year;
+
 
   const decodedName = Array.isArray(encodedName)
     ? decodeURIComponent(encodedName[0] || "")
     : decodeURIComponent((encodedName as string) || "");
 
+
   const yearValue = Array.isArray(yearParam)
     ? parseInt(yearParam[0] || "0", 10)
     : parseInt((yearParam as string) || "0", 10);
+
 
   if (isNaN(yearValue) || yearValue < 1996 || yearValue > 2024) {
     loadError.value =
@@ -188,36 +204,46 @@ function parseRouteParams(): { name: string; year: number } | null {
     return null;
   }
 
+
   return { name: decodedName, year: yearValue };
 }
+
 
 async function loadData() {
   loading.value = true;
   loadError.value = null;
 
+
   try {
     const params = parseRouteParams();
     if (!params) return;
 
+
     const { name: decodedName, year: yearValue } = params;
 
+
     const data = await getName(decodedName);
+
 
     if (!data) {
       loadError.value = `Name "${decodedName}" not found in dataset`;
       return;
     }
 
+
     nameData.value = data;
     year.value = yearValue;
 
+
     yearlyRanksMap.value = await getYearlyRanks(decodedName);
+
 
     const girlsYearly = data.girlsYearly || [];
     const boysYearly = data.boysYearly || [];
     const hasYearData =
       girlsYearly.some((yc) => yc.year === yearValue) ||
       boysYearly.some((yc) => yc.year === yearValue);
+
 
     if (!hasYearData) {
       loadError.value = `No data available for "${decodedName}" in the year ${yearValue}.`;
@@ -230,9 +256,11 @@ async function loadData() {
   }
 }
 
+
 onMounted(() => {
   loadData();
 });
+
 
 watch(
   () => ({ name: route.params.name, year: route.params.year }),
@@ -247,6 +275,7 @@ watch(
     }
   },
 );
+
 
 function navigateToYear(selectedYear: number) {
   if (nameData.value && selectedYear !== year.value) {

@@ -1,17 +1,19 @@
 <script setup lang="ts">
+import { computed, nextTick, ref, watch } from "vue";
+import { useRouter } from "vue-router";
+
 import type { NameDataComputed, Ranks } from "@/models/types";
 import {
   formatGenderScore,
   formatNumber,
   getGenderColor,
 } from "@/utils/formatters";
-import { computed, nextTick, ref, watch } from "vue";
-import { useRouter } from "vue-router";
 
 interface NameRow {
   name: NameDataComputed;
   ranks: Ranks;
 }
+
 
 interface Props {
   title: string;
@@ -21,13 +23,16 @@ interface Props {
   highlightName?: string;
 }
 
+
 const props = withDefaults(defineProps<Props>(), {
   highlightName: undefined,
   showRanks: true,
   startIndex: 0,
 });
 
+
 const router = useRouter();
+
 
 const rowsComputed = computed(() =>
   props.rows.map((row: NameRow) => ({
@@ -36,7 +41,9 @@ const rowsComputed = computed(() =>
   })),
 );
 
+
 const highlightedRow = ref<HTMLTableRowElement | null>(null);
+
 
 watch(highlightedRow, (el) => {
   if (el) {
@@ -45,6 +52,7 @@ watch(highlightedRow, (el) => {
     });
   }
 });
+
 
 const goToName = (name: string) => {
   router.push({ name: "lookup", params: { name: encodeURIComponent(name) } });

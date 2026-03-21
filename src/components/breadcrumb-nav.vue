@@ -4,10 +4,12 @@ interface BreadcrumbItem {
   to?: string;
 }
 
+
 interface Props {
   items: BreadcrumbItem[];
   size?: "small" | "large";
 }
+
 
 withDefaults(defineProps<Props>(), {
   size: "small",

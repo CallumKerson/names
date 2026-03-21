@@ -1,15 +1,17 @@
 <script setup lang="ts">
 import { computed, onMounted, onBeforeUnmount, ref, shallowRef } from "vue";
 import { useRoute, useRouter } from "vue-router";
-import { findClosestToScore, getTopNames } from "@/utils/calculations";
-import type { NameDataComputed, Ranks } from "@/models/types";
-import { useNamesData } from "@/composables/useNamesData";
+
 import NamesTable from "@/components/names-table.vue";
 import ScoreSlider from "@/components/score-slider.vue";
+import { useNamesData } from "@/composables/useNamesData";
+import type { NameDataComputed, Ranks } from "@/models/types";
+import { findClosestToScore, getTopNames } from "@/utils/calculations";
 
 const route = useRoute();
 const router = useRouter();
 const { getAllNames, getRankingMap } = useNamesData();
+
 
 const loading = ref(false);
 const loadError = ref<string | null>(null);
@@ -21,7 +23,9 @@ const customTopN = ref(1000);
 const allNames = shallowRef<NameDataComputed[]>([]);
 const rankMap = shallowRef<Map<string, Ranks>>(new Map());
 
+
 const presetOptions = ["100", "500", "1000", "1500", "2000", "0", "custom"];
+
 
 const filteredNames = computed(() => {
   if (topN.value === 0) {
@@ -29,6 +33,7 @@ const filteredNames = computed(() => {
   }
   return getTopNames(allNames.value, "total", topN.value);
 });
+
 
 const closestNames = computed(() => {
   const names = findClosestToScore(
@@ -42,11 +47,14 @@ const closestNames = computed(() => {
   }));
 });
 
+
 let queryParamTimer: ReturnType<typeof setTimeout> | undefined;
+
 
 onBeforeUnmount(() => {
   clearTimeout(queryParamTimer);
 });
+
 
 function syncQueryParams() {
   clearTimeout(queryParamTimer);
@@ -61,13 +69,16 @@ function syncQueryParams() {
   }, 200);
 }
 
+
 const updateScore = () => {
   syncQueryParams();
 };
 
+
 const updateResultCount = () => {
   syncQueryParams();
 };
+
 
 const updatePreset = (value: string) => {
   selectedPreset.value = value;
@@ -79,6 +90,7 @@ const updatePreset = (value: string) => {
   syncQueryParams();
 };
 
+
 const updateCustomTopN = () => {
   if (customTopN.value > 0) {
     topN.value = customTopN.value;
@@ -86,10 +98,12 @@ const updateCustomTopN = () => {
   }
 };
 
+
 function applyQueryParams() {
   const queryTarget = route.query.target as string | undefined;
   const queryN = route.query.n as string | undefined;
   const queryTop = route.query.top as string | undefined;
+
 
   if (queryTarget) {
     const val = parseFloat(
@@ -100,12 +114,14 @@ function applyQueryParams() {
     }
   }
 
+
   if (queryN) {
     const val = parseInt(Array.isArray(queryN) ? queryN[0] : queryN || "0", 10);
     if (!isNaN(val) && val > 0 && val <= 1000) {
       resultCount.value = val;
     }
   }
+
 
   if (queryTop) {
     const val = parseInt(
@@ -123,6 +139,7 @@ function applyQueryParams() {
     }
   }
 }
+
 
 onMounted(async () => {
   loading.value = true;

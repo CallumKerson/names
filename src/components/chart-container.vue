@@ -12,8 +12,8 @@ import {
   Title,
   Tooltip,
 } from "chart.js";
-import { Line } from "vue-chartjs";
 import { computed } from "vue";
+import { Line } from "vue-chartjs";
 
 ChartJS.register(
   CategoryScale,
@@ -25,6 +25,7 @@ ChartJS.register(
   Legend,
 );
 
+
 interface Props {
   title: string;
   data: [number, number][];
@@ -34,13 +35,16 @@ interface Props {
   gradientColor?: boolean;
 }
 
+
 const emit = defineEmits<{
   pointClick: [year: number];
 }>();
 
+
 const props = withDefaults(defineProps<Props>(), {
   color: "#F59E0B",
 });
+
 
 function handleChartClick(_event: unknown, elements: unknown[]) {
   if (Array.isArray(elements) && elements.length > 0) {
@@ -55,6 +59,7 @@ function handleChartClick(_event: unknown, elements: unknown[]) {
   }
 }
 
+
 function getTooltipAfterLabel(context: unknown): string {
   const ctx = context as Record<string, unknown>;
   const dataIndex = ctx.dataIndex as number;
@@ -68,6 +73,7 @@ function getTooltipAfterLabel(context: unknown): string {
   return "";
 }
 
+
 function getSegmentBorderColor(ctx: ScriptableContext<"line">): string {
   const datapoint = (ctx as unknown as Record<string, number>).p0DataIndex;
   if (datapoint === undefined) return "#999";
@@ -80,6 +86,7 @@ function getSegmentBorderColor(ctx: ScriptableContext<"line">): string {
   // Neutral - amber
   return "#F59E0B";
 }
+
 
 const chartData = computed<ChartData<"line">>(() => {
   const dataset: ChartDataset<"line"> = {
@@ -117,6 +124,7 @@ const chartData = computed<ChartData<"line">>(() => {
     labels: props.data.map(([year]: [number, number]) => year),
   };
 });
+
 
 const chartOptions = computed(() => {
   const options: Record<string, unknown> = {

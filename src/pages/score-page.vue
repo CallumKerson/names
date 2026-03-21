@@ -1,23 +1,27 @@
 <script setup lang="ts">
+import { computed, onMounted, ref, shallowRef } from "vue";
+
+import NamesTable from "@/components/names-table.vue";
+import { useNamesData } from "@/composables/useNamesData";
+import type { NameDataComputed, Ranks } from "@/models/types";
 import {
   getFeminineNames,
   getMasculineNames,
   getNeutralNames,
   getTopNames,
 } from "@/utils/calculations";
-import { computed, onMounted, ref, shallowRef } from "vue";
-import type { NameDataComputed, Ranks } from "@/models/types";
-import { useNamesData } from "@/composables/useNamesData";
-import NamesTable from "@/components/names-table.vue";
 
 const { getAllNames, getRankingMap } = useNamesData();
+
 
 const loading = ref(false);
 const loadError = ref<string | null>(null);
 const allNames = shallowRef<NameDataComputed[]>([]);
 const rankMap = shallowRef<Map<string, Ranks>>(new Map());
 
+
 const topNames = computed(() => getTopNames(allNames.value, "total", 1000));
+
 
 const feminineNames = computed(() => {
   const names = getFeminineNames(topNames.value);
@@ -27,6 +31,7 @@ const feminineNames = computed(() => {
   }));
 });
 
+
 const masculineNames = computed(() => {
   const names = getMasculineNames(topNames.value);
   return getTopNames(names, "total", 10).map((name: NameDataComputed) => ({
@@ -35,6 +40,7 @@ const masculineNames = computed(() => {
   }));
 });
 
+
 const neutralNames = computed(() => {
   const names = getNeutralNames(topNames.value);
   return getTopNames(names, "total", 10).map((name: NameDataComputed) => ({
@@ -42,6 +48,7 @@ const neutralNames = computed(() => {
     ranks: rankMap.value.get(name.name) || { girls: 0, boys: 0, overall: 0 },
   }));
 });
+
 
 onMounted(async () => {
   loading.value = true;

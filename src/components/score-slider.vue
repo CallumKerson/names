@@ -9,7 +9,9 @@ interface Props {
   label?: string;
 }
 
+
 type Emits = (e: "update:modelValue", value: number) => void;
+
 
 const props = withDefaults(defineProps<Props>(), {
   label: "Target Gender Score",
@@ -18,13 +20,16 @@ const props = withDefaults(defineProps<Props>(), {
   step: 0.01,
 });
 
+
 defineEmits<Emits>();
+
 
 const displayValue = computed(() => {
   const value = props.modelValue;
   const prefix = value >= 0 ? "+" : "";
   return `${prefix}${value.toFixed(2)}`;
 });
+
 
 const category = computed(() => {
   const score = props.modelValue;
@@ -36,6 +41,7 @@ const category = computed(() => {
   }
   return "Neutral";
 });
+
 
 const categoryColor = computed(() => {
   const score = props.modelValue;

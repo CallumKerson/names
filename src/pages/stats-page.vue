@@ -1,7 +1,20 @@
 <script setup lang="ts">
+import {
+  CategoryScale,
+  type ChartData,
+  Chart as ChartJS,
+  Legend,
+  LineElement,
+  LinearScale,
+  PointElement,
+  Title,
+  Tooltip,
+} from "chart.js";
 import { computed, onMounted, ref, shallowRef } from "vue";
-import type { NameDataComputed } from "@/models/types";
+import { Line } from "vue-chartjs";
+
 import { getYearlyDataset, useNamesData } from "@/composables/useNamesData";
+import type { NameDataComputed } from "@/models/types";
 import {
   computeGenderScoreChanges,
   computePopularityChanges,
@@ -23,18 +36,6 @@ import {
   formatNumber,
   getGenderColor,
 } from "@/utils/formatters";
-import {
-  CategoryScale,
-  type ChartData,
-  Chart as ChartJS,
-  Legend,
-  LineElement,
-  LinearScale,
-  PointElement,
-  Title,
-  Tooltip,
-} from "chart.js";
-import { Line } from "vue-chartjs";
 
 ChartJS.register(
   CategoryScale,
@@ -46,12 +47,15 @@ ChartJS.register(
   Legend,
 );
 
+
 const { getAllNames, getMetadata } = useNamesData();
+
 
 const loading = ref(false);
 const loadError = ref<string | null>(null);
 const allNames = shallowRef<NameDataComputed[]>([]);
 const yearRange = ref("");
+
 
 const yearlyLoading = ref(false);
 const girlsRisers = shallowRef<PopularityChange[]>([]);
@@ -62,19 +66,23 @@ const towardsFeminine = shallowRef<GenderScoreChange[]>([]);
 const towardsMasculine = shallowRef<GenderScoreChange[]>([]);
 const towardsNeutral = shallowRef<GenderScoreChange[]>([]);
 
+
 async function loadYearlyChanges() {
   yearlyLoading.value = true;
   try {
     const yearly = await getYearlyDataset();
     const { startYear, endYear } = yearly.metadata;
 
+
     const girls = computePopularityChanges(yearly, startYear, endYear, "girls");
     girlsRisers.value = girls.risers;
     girlsFallers.value = girls.fallers;
 
+
     const boys = computePopularityChanges(yearly, startYear, endYear, "boys");
     boysRisers.value = boys.risers;
     boysFallers.value = boys.fallers;
+
 
     const scores = computeGenderScoreChanges(yearly, startYear, endYear);
     towardsFeminine.value = scores.towardsFeminine;
@@ -86,6 +94,7 @@ async function loadYearlyChanges() {
     yearlyLoading.value = false;
   }
 }
+
 
 onMounted(async () => {
   loading.value = true;
@@ -105,6 +114,7 @@ onMounted(async () => {
   loadYearlyChanges();
 });
 
+
 // Overview
 const totalNames = computed(() => allNames.value.length);
 const totalBabies = computed(() =>
@@ -117,18 +127,22 @@ const totalBoys = computed(() =>
   allNames.value.reduce((sum, n) => sum + n.boysTotal, 0),
 );
 
+
 // Gender distribution
 const feminineCount = computed(() => getFeminineNames(allNames.value).length);
 const masculineCount = computed(() => getMasculineNames(allNames.value).length);
 const neutralCount = computed(() => getNeutralNames(allNames.value).length);
+
 
 function pct(value: number, total: number): string {
   if (total === 0) return "0";
   return ((value / total) * 100).toFixed(1);
 }
 
+
 // Superlatives (among top 1,000 by popularity)
 const top1000 = computed(() => getTopNames(allNames.value, "total", 1000));
+
 
 const mostFeminine = computed(() => {
   const feminine = getFeminineNames(top1000.value);
@@ -137,6 +151,7 @@ const mostFeminine = computed(() => {
     : null;
 });
 
+
 const mostMasculine = computed(() => {
   const masculine = getMasculineNames(top1000.value);
   return masculine.length > 0
@@ -144,10 +159,12 @@ const mostMasculine = computed(() => {
     : null;
 });
 
+
 const mostNeutral = computed(() => {
   const closest = findClosestToScore(top1000.value, 0, 1);
   return closest.length > 0 ? closest[0] : null;
 });
+
 
 const mostPopular = computed(() => {
   return allNames.value.length > 0
@@ -155,15 +172,18 @@ const mostPopular = computed(() => {
     : null;
 });
 
+
 const mostPopularGirlsOnly = computed(() => {
   const girlsOnly = allNames.value.filter((n) => n.genderScore === 1);
   return girlsOnly.length > 0 ? getTopNames(girlsOnly, "total", 1)[0] : null;
 });
 
+
 const mostPopularBoysOnly = computed(() => {
   const boysOnly = allNames.value.filter((n) => n.genderScore === -1);
   return boysOnly.length > 0 ? getTopNames(boysOnly, "total", 1)[0] : null;
 });
+
 
 // Name length stats (among top 1,000)
 const avgNameLength = computed(() => {
@@ -172,13 +192,16 @@ const avgNameLength = computed(() => {
   return total / top1000.value.length;
 });
 
+
 const longestNames = computed(() =>
   [...top1000.value].sort((a, b) => b.name.length - a.name.length).slice(0, 5),
 );
 
+
 const shortestNames = computed(() =>
   [...top1000.value].sort((a, b) => a.name.length - b.name.length).slice(0, 5),
 );
+
 
 const lengthDistribution = computed(() => {
   const dist = new Map<number, number>();
@@ -188,12 +211,14 @@ const lengthDistribution = computed(() => {
   return [...dist.entries()].sort((a, b) => a[0] - b[0]);
 });
 
+
 const modeLength = computed(() => {
   if (lengthDistribution.value.length === 0) return 0;
   return lengthDistribution.value.reduce((best, curr) =>
     curr[1] > best[1] ? curr : best,
   )[0];
 });
+
 
 // Starting letter distribution (among top 1,000)
 const letterDistribution = computed(() => {
@@ -205,10 +230,12 @@ const letterDistribution = computed(() => {
   return [...dist.entries()].sort((a, b) => b[1] - a[1]);
 });
 
+
 const topLetters = computed(() => letterDistribution.value.slice(0, 5));
 const rarestLetters = computed(() =>
   [...letterDistribution.value].sort((a, b) => a[1] - b[1]).slice(0, 5),
 );
+
 
 // Girls vs boys diversity
 const uniqueGirlNames = computed(
@@ -224,6 +251,7 @@ const bothGenderNames = computed(
 const exclusiveNames = computed(
   () => allNames.value.length - bothGenderNames.value,
 );
+
 
 const concentrationData = computed<ChartData<"line">>(() => {
   if (allNames.value.length === 0) {

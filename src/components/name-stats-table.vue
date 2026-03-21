@@ -1,19 +1,22 @@
 <script setup lang="ts">
+import { useRouter } from "vue-router";
+
 import type { NameDataComputed, Ranks } from "@/models/types";
 import {
   formatGenderScore,
   formatNumber,
   getGenderCategory,
 } from "@/utils/formatters";
-import { useRouter } from "vue-router";
 
 interface Props {
   name: NameDataComputed;
   ranks: Ranks;
 }
 
+
 const props = defineProps<Props>();
 const router = useRouter();
+
 
 function getCategoryColor(genderScore: number): string {
   if (genderScore > 0.3) {
@@ -24,6 +27,7 @@ function getCategoryColor(genderScore: number): string {
   }
   return "#F59E0B";
 }
+
 
 function goToPopularPage(rank: number, filter?: "girls" | "boys") {
   const page = Math.ceil(rank / 100);

@@ -1,8 +1,10 @@
 <script setup lang="ts">
 import { useRoute } from "vue-router";
+
 import NameSearch from "@/components/name-search.vue";
 
 const route = useRoute();
+
 
 const isActive = (path: string): boolean => route.path === path;
 </script>
@@ -11,42 +13,42 @@ const isActive = (path: string): boolean => route.path === path;
   <div class="app-layout">
     <header class="navbar">
       <div class="navbar-container">
-        <RouterLink to="/" class="logo">
-          <h1>Names</h1>
-        </RouterLink>
-        <div class="nav-right">
+        <div class="navbar-top">
+          <RouterLink to="/" class="logo">
+            <h1>Names</h1>
+          </RouterLink>
           <NameSearch />
-          <nav class="nav-menu">
-            <RouterLink
-              to="/"
-              class="nav-link"
-              :class="{ active: isActive('/') }"
-            >
-              Browse
-            </RouterLink>
-            <RouterLink
-              to="/score"
-              class="nav-link"
-              :class="{ active: isActive('/score') }"
-            >
-              Score
-            </RouterLink>
-            <RouterLink
-              to="/nearest"
-              class="nav-link"
-              :class="{ active: isActive('/nearest') }"
-            >
-              Nearest
-            </RouterLink>
-            <RouterLink
-              to="/stats"
-              class="nav-link"
-              :class="{ active: isActive('/stats') }"
-            >
-              Stats
-            </RouterLink>
-          </nav>
         </div>
+        <nav class="nav-menu">
+          <RouterLink
+            to="/"
+            class="nav-link"
+            :class="{ active: isActive('/') }"
+          >
+            Browse
+          </RouterLink>
+          <RouterLink
+            to="/score"
+            class="nav-link"
+            :class="{ active: isActive('/score') }"
+          >
+            Score
+          </RouterLink>
+          <RouterLink
+            to="/nearest"
+            class="nav-link"
+            :class="{ active: isActive('/nearest') }"
+          >
+            Nearest
+          </RouterLink>
+          <RouterLink
+            to="/stats"
+            class="nav-link"
+            :class="{ active: isActive('/stats') }"
+          >
+            Stats
+          </RouterLink>
+        </nav>
       </div>
     </header>
 
@@ -79,7 +81,7 @@ const isActive = (path: string): boolean => route.path === path;
 .navbar {
   background: #f59e0b;
   color: #333;
-  padding: 1rem 0;
+  padding: 0.75rem 0;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
@@ -88,13 +90,20 @@ const isActive = (path: string): boolean => route.path === path;
   margin: 0 auto;
   padding: 0 1rem;
   display: flex;
-  justify-content: space-between;
   align-items: center;
+  gap: 1.5rem;
+}
+
+.navbar-top {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
 }
 
 .logo {
   text-decoration: none;
   color: #333;
+  white-space: nowrap;
 }
 
 .logo h1 {
@@ -102,16 +111,10 @@ const isActive = (path: string): boolean => route.path === path;
   font-size: 1.5rem;
 }
 
-.nav-right {
-  display: flex;
-  align-items: center;
-  gap: 1.5rem;
-}
-
 .nav-menu {
   display: flex;
-  gap: 2rem;
-  list-style: none;
+  gap: 0.25rem;
+  margin-left: auto;
 }
 
 .nav-link {
@@ -120,6 +123,7 @@ const isActive = (path: string): boolean => route.path === path;
   transition: color 0.3s;
   padding: 0.5rem 1rem;
   border-radius: 4px;
+  white-space: nowrap;
 }
 
 .nav-link:hover {
@@ -151,16 +155,23 @@ const isActive = (path: string): boolean => route.path === path;
 
 @media (max-width: 768px) {
   .navbar-container {
-    flex-direction: column;
-    gap: 1rem;
+    flex-wrap: wrap;
+  }
+
+  .navbar-top {
+    width: 100%;
+    justify-content: space-between;
   }
 
   .nav-menu {
-    gap: 1rem;
+    width: 100%;
+    justify-content: space-around;
+    margin-left: 0;
   }
 
   .nav-link {
-    padding: 0.25rem 0.5rem;
+    padding: 0.35rem 0.5rem;
+    font-size: 0.9rem;
   }
 }
 </style>

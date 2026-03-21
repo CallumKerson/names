@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import { ref, watch } from "vue";
 import { useRouter } from "vue-router";
+
 import { getAllNames } from "@/composables/useNamesData";
-import { formatGenderScore, getGenderColor } from "@/utils/formatters";
 import type { NameDataComputed } from "@/models/types";
+import { formatGenderScore, getGenderColor } from "@/utils/formatters";
 
 const router = useRouter();
 const query = ref("");
@@ -12,8 +13,10 @@ const isOpen = ref(false);
 const activeIndex = ref(-1);
 const inputRef = ref<HTMLInputElement | null>(null);
 
+
 let allNames: NameDataComputed[] = [];
 let loaded = false;
+
 
 async function ensureLoaded() {
   if (!loaded) {
@@ -21,6 +24,7 @@ async function ensureLoaded() {
     loaded = true;
   }
 }
+
 
 watch(query, async (value) => {
   if (value.length === 0) {
@@ -40,14 +44,17 @@ watch(query, async (value) => {
   activeIndex.value = -1;
 });
 
+
 function selectName(name: string) {
   query.value = "";
   isOpen.value = false;
   router.push(`/name/${name}`);
 }
 
+
 function onKeydown(event: KeyboardEvent) {
   if (!isOpen.value) return;
+
 
   if (event.key === "ArrowDown") {
     event.preventDefault();
@@ -68,6 +75,7 @@ function onKeydown(event: KeyboardEvent) {
   }
 }
 
+
 function onBlur() {
   // Delay to allow click on dropdown item
   setTimeout(() => {
@@ -75,6 +83,7 @@ function onBlur() {
     activeIndex.value = -1;
   }, 150);
 }
+
 
 function capitalize(name: string): string {
   return name.charAt(0).toUpperCase() + name.slice(1);
@@ -123,6 +132,17 @@ function capitalize(name: string): string {
   color: #333;
   font-size: 0.9rem;
   width: 200px;
+  min-width: 0;
+}
+
+@media (max-width: 768px) {
+  .name-search {
+    flex: 1;
+  }
+
+  .search-input {
+    width: 100%;
+  }
 }
 
 .search-input::placeholder {

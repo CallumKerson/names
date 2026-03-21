@@ -1,21 +1,24 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from "vue";
-import type { NameDataComputed, Ranks } from "@/models/types";
-import { calculateYearlyGenderScores } from "@/utils/calculations";
 import { useRoute, useRouter } from "vue-router";
-import { useNamesData } from "@/composables/useNamesData";
+
 import ChartContainer from "@/components/chart-container.vue";
 import NameStatsTable from "@/components/name-stats-table.vue";
+import { useNamesData } from "@/composables/useNamesData";
+import type { NameDataComputed, Ranks } from "@/models/types";
+import { calculateYearlyGenderScores } from "@/utils/calculations";
 
 const route = useRoute();
 const router = useRouter();
 const { getName, getRankingMap, getYearlyRanks } = useNamesData();
+
 
 const loading = ref(false);
 const loadError = ref<string | null>(null);
 const nameData = ref<NameDataComputed | null>(null);
 const ranks = ref<Ranks | null>(null);
 const yearlyRanksMap = ref<Record<number, number>>({});
+
 
 function navigateToYear(year: number) {
   if (nameData.value) {
@@ -28,6 +31,7 @@ function navigateToYear(year: number) {
     });
   }
 }
+
 
 const popularityData = computed(() => {
   if (!nameData.value?.girlsYearly || !nameData.value?.boysYearly) {
@@ -57,6 +61,7 @@ const popularityData = computed(() => {
   );
 });
 
+
 const genderScoreData = computed(() => {
   if (!nameData.value?.girlsYearly || !nameData.value?.boysYearly) {
     return [];
@@ -76,12 +81,15 @@ const genderScoreData = computed(() => {
   return calculateYearlyGenderScores(girlsMap, boysMap);
 });
 
+
 const hasYearlyData = computed(() => popularityData.value.length > 0);
+
 
 const hasBothGenders = computed(() => {
   if (!nameData.value) return false;
   return nameData.value.boysTotal > 0 && nameData.value.girlsTotal > 0;
 });
+
 
 const rankDataMap = computed(() => {
   if (!yearlyRanksMap.value || Object.keys(yearlyRanksMap.value).length === 0) {
@@ -90,9 +98,11 @@ const rankDataMap = computed(() => {
   return yearlyRanksMap.value;
 });
 
+
 async function loadNameData() {
   loading.value = true;
   loadError.value = null;
+
 
   try {
     const encodedName = route.params.name;
@@ -100,14 +110,18 @@ async function loadNameData() {
       ? decodeURIComponent(encodedName[0] || "")
       : decodeURIComponent((encodedName as string) || "");
 
+
     const data = await getName(decodedName);
+
 
     if (!data) {
       loadError.value = `Name "${decodedName}" not found in dataset`;
       return;
     }
 
+
     nameData.value = data;
+
 
     // Get aggregate ranks from cached ranking map
     const rankingMap = await getRankingMap();
@@ -116,6 +130,7 @@ async function loadNameData() {
       boys: 0,
       overall: 0,
     };
+
 
     // Get yearly ranks for the chart tooltip
     yearlyRanksMap.value = await getYearlyRanks(decodedName);
@@ -126,6 +141,7 @@ async function loadNameData() {
     loading.value = false;
   }
 }
+
 
 onMounted(loadNameData);
 watch(() => route.params.name, loadNameData);

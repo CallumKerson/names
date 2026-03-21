@@ -1,21 +1,25 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, shallowRef } from "vue";
 import { useRoute, useRouter } from "vue-router";
-import { getTopNames } from "@/utils/calculations";
-import type { NameDataComputed, Ranks } from "@/models/types";
-import { useNamesData } from "@/composables/useNamesData";
+
 import NamesTable from "@/components/names-table.vue";
+import { useNamesData } from "@/composables/useNamesData";
+import type { NameDataComputed, Ranks } from "@/models/types";
+import { getTopNames } from "@/utils/calculations";
 
 type FilterType = "overall" | "boys" | "girls";
+
 
 const route = useRoute();
 const router = useRouter();
 const { getAllNames, getRankingMap } = useNamesData();
 
+
 const loading = ref(false);
 const loadError = ref<string | null>(null);
 const filter = ref<FilterType>("overall");
 type ScoreFilter = "all" | "feminine" | "neutral" | "masculine";
+
 
 const nameLength = ref<number | null>(null);
 const startingLetter = ref<string | null>(null);
@@ -26,10 +30,12 @@ const highlightName = ref<string | undefined>();
 const allNames = shallowRef<NameDataComputed[]>([]);
 const rankMap = shallowRef<Map<string, Ranks>>(new Map());
 
+
 const availableLengths = computed(() => {
   const lengths = new Set(allNames.value.map((n) => n.name.length));
   return [...lengths].sort((a, b) => a - b);
 });
+
 
 const availableLetters = computed(() => {
   const letters = new Set(
@@ -37,6 +43,7 @@ const availableLetters = computed(() => {
   );
   return [...letters].sort();
 });
+
 
 const sortedNames = computed(() => {
   const criterion = filter.value === "overall" ? "total" : filter.value;
@@ -67,9 +74,11 @@ const sortedNames = computed(() => {
   return sorted;
 });
 
+
 const totalPages = computed(() =>
   Math.ceil(sortedNames.value.length / perPage.value),
 );
+
 
 const displayedNames = computed(() => {
   const start = (page.value - 1) * perPage.value;
@@ -80,7 +89,9 @@ const displayedNames = computed(() => {
   }));
 });
 
+
 const startIndex = computed(() => (page.value - 1) * perPage.value);
+
 
 const tableTitle = computed(() => {
   const titles = {
@@ -102,6 +113,7 @@ const tableTitle = computed(() => {
   return parts.length > 0 ? `${base} (${parts.join(", ")})` : base;
 });
 
+
 function syncQueryParams() {
   router.replace({
     query: {
@@ -115,11 +127,13 @@ function syncQueryParams() {
   });
 }
 
+
 const updateFilter = (newFilter: FilterType) => {
   filter.value = newFilter;
   page.value = 1;
   syncQueryParams();
 };
+
 
 const updateNameLength = (newLength: number | null) => {
   nameLength.value = newLength;
@@ -127,11 +141,13 @@ const updateNameLength = (newLength: number | null) => {
   syncQueryParams();
 };
 
+
 const updateStartingLetter = (newLetter: string | null) => {
   startingLetter.value = newLetter;
   page.value = 1;
   syncQueryParams();
 };
+
 
 const updateScoreFilter = (newScore: ScoreFilter) => {
   scoreFilter.value = newScore;
@@ -139,16 +155,19 @@ const updateScoreFilter = (newScore: ScoreFilter) => {
   syncQueryParams();
 };
 
+
 const updatePerPage = (newPerPage: number) => {
   perPage.value = newPerPage;
   page.value = 1;
   syncQueryParams();
 };
 
+
 const sortSelectClass = computed(() => ({
   "select-girls": filter.value === "girls",
   "select-boys": filter.value === "boys",
 }));
+
 
 const scoreSelectClass = computed(() => ({
   "select-girls": scoreFilter.value === "feminine",
@@ -156,16 +175,19 @@ const scoreSelectClass = computed(() => ({
   "select-neutral": scoreFilter.value === "neutral",
 }));
 
+
 const goToPage = (newPage: number) => {
   page.value = Math.max(1, Math.min(newPage, totalPages.value));
   syncQueryParams();
 };
 
-function parseQueryParams() {
+
+function parseFilterParams() {
   const queryF = route.query.f as string | undefined;
   if (queryF && ["overall", "boys", "girls"].includes(queryF)) {
     filter.value = queryF as FilterType;
   }
+
 
   const queryLen = route.query.len as string | undefined;
   if (queryLen) {
@@ -175,15 +197,23 @@ function parseQueryParams() {
     }
   }
 
+
   const queryLetter = route.query.letter as string | undefined;
   if (queryLetter && /^[A-Z]$/i.test(queryLetter)) {
     startingLetter.value = queryLetter.toUpperCase();
   }
 
+
   const queryScore = route.query.score as string | undefined;
   if (queryScore && ["feminine", "neutral", "masculine"].includes(queryScore)) {
     scoreFilter.value = queryScore as ScoreFilter;
   }
+}
+
+
+function parseQueryParams() {
+  parseFilterParams();
+
 
   const queryPp = route.query.pp as string | undefined;
   if (queryPp) {
@@ -193,6 +223,7 @@ function parseQueryParams() {
     }
   }
 
+
   const queryPage = route.query.page as string | undefined;
   if (queryPage) {
     const val = parseInt(queryPage, 10);
@@ -201,11 +232,13 @@ function parseQueryParams() {
     }
   }
 
+
   const queryHighlight = route.query.highlight as string | undefined;
   if (queryHighlight) {
     highlightName.value = queryHighlight;
   }
 }
+
 
 onMounted(async () => {
   loading.value = true;
