@@ -1,9 +1,8 @@
 /**
- * Process baby names XLSX data into optimized JSON format.
- *
- * Reads ONS XLSX file (1996-2024) and produces two JSON files:
- * - names-aggregate.json: name, boys_total, girls_total for all names
- * - names-yearly.json: yearly breakdown data for charts
+ * Reads ONS XLSX file (1996-2024) and produces:
+ * - names-aggregate.json: aggregate totals for all names
+ * - yearly/{letter}.json: per-letter yearly breakdowns
+ * - yearly-ranks/{letter}.json: per-letter yearly rankings
  */
 import fs from "fs/promises";
 import path from "path";
@@ -25,21 +24,12 @@ type YearlyRecord = Record<
 >;
 
 function parseCount(value: unknown): number | null {
-  if (value === null || value === undefined || value === "") {
-    return null;
-  }
-  if (typeof value === "number") {
-    return value;
-  }
-  if (typeof value !== "string") {
-    return null;
-  }
+  if (value === null || value === undefined || value === "") return null;
+  if (typeof value === "number") return value;
+  if (typeof value !== "string") return null;
   const str = value.trim();
-  if (str === "[x]" || str === "S") {
-    return null;
-  }
-  const cleaned = str.replaceAll('"', "").replaceAll(",", "");
-  const num = parseFloat(cleaned);
+  if (str === "[x]" || str === "S") return null;
+  const num = parseFloat(str.replaceAll('"', "").replaceAll(",", ""));
   return Number.isNaN(num) ? null : num;
 }
 
@@ -85,27 +75,16 @@ function processRows(
 
   for (let i = 1; i < rows.length; i++) {
     const row = rows[i];
-    if (!Array.isArray(row) || row.length === 0) {
-      continue;
-    }
-
+    if (!Array.isArray(row) || row.length === 0) continue;
     const rawName = row[0];
-    if (typeof rawName !== "string" && typeof rawName !== "number") {
-      continue;
-    }
+    if (typeof rawName !== "string" && typeof rawName !== "number") continue;
     const name = String(rawName).trim();
-    if (!name || name.startsWith("[note")) {
-      continue;
-    }
+    if (!name || name.startsWith("[note")) continue;
 
     const nameLower = name.toLowerCase();
-
-    if (!(nameLower in yearly)) {
-      yearly[nameLower] = { girls: {}, boys: {} };
-    }
+    if (!(nameLower in yearly)) yearly[nameLower] = { girls: {}, boys: {} };
 
     let totalCount = 0;
-
     for (const { index, year } of yearIndices) {
       const count = parseCount(row[index]);
       if (count !== null) {
@@ -115,8 +94,7 @@ function processRows(
     }
 
     if (totalCount > 0) {
-      const currentTotal = aggregate.get(nameLower) ?? 0;
-      aggregate.set(nameLower, currentTotal + totalCount);
+      aggregate.set(nameLower, (aggregate.get(nameLower) ?? 0) + totalCount);
     }
   }
 
@@ -139,7 +117,6 @@ function mergeData(
 
   for (const nameLower of allNames) {
     const displayName = nameLower.charAt(0).toUpperCase() + nameLower.slice(1);
-
     aggregateData[displayName] = {
       girlsTotal: girlsAggregate.get(nameLower) ?? 0,
       boysTotal: boysAggregate.get(nameLower) ?? 0,
@@ -165,45 +142,29 @@ function computeYearlyRanks(
   yearlyData: Record<string, Record<string, Record<number, number>>>,
   sortedNames: string[],
 ): Record<string, Record<number, number>> {
-  // Collect all years
   const allYears = new Set<number>();
   for (const name of sortedNames) {
     const data = yearlyData[name];
-    for (const year of Object.keys(data.girls)) {
+    for (const year of Object.keys(data.girls))
       allYears.add(parseInt(year, 10));
-    }
-    for (const year of Object.keys(data.boys)) {
-      allYears.add(parseInt(year, 10));
-    }
+    for (const year of Object.keys(data.boys)) allYears.add(parseInt(year, 10));
   }
 
-  // For each year, compute ranks by total count
   const yearlyRanks: Record<string, Record<number, number>> = {};
-
   for (const year of allYears) {
     const counts: [string, number][] = [];
-
     for (const name of sortedNames) {
       const data = yearlyData[name];
-      const girlsCount = data.girls[year] ?? 0;
-      const boysCount = data.boys[year] ?? 0;
-      const total = girlsCount + boysCount;
-      if (total > 0) {
-        counts.push([name, total]);
-      }
+      const total = (data.girls[year] ?? 0) + (data.boys[year] ?? 0);
+      if (total > 0) counts.push([name, total]);
     }
-
     counts.sort((a, b) => b[1] - a[1]);
-
     for (let i = 0; i < counts.length; i++) {
       const name = counts[i][0];
-      if (!(name in yearlyRanks)) {
-        yearlyRanks[name] = {};
-      }
+      if (!(name in yearlyRanks)) yearlyRanks[name] = {};
       yearlyRanks[name][year] = i + 1;
     }
   }
-
   return yearlyRanks;
 }
 
@@ -211,9 +172,53 @@ async function writeJsonFile(
   filePath: string,
   data: Record<string, unknown>,
 ): Promise<number> {
-  await fs.writeFile(filePath, JSON.stringify(data, undefined, 2));
-  console.log(`Wrote ${filePath}`);
-  return (await fs.stat(filePath)).size;
+  const json = JSON.stringify(data, undefined, 2);
+  await fs.writeFile(filePath, json);
+  return json.length;
+}
+
+function groupByLetter<T>(
+  data: Record<string, T>,
+  names: string[],
+): Map<string, Record<string, T>> {
+  const groups = new Map<string, Record<string, T>>();
+  for (const name of names) {
+    const first = name.charAt(0).toUpperCase();
+    const letter = /[A-Z]/.test(first) ? first.toLowerCase() : "_";
+    let group = groups.get(letter);
+    if (!group) {
+      group = {};
+      groups.set(letter, group);
+    }
+    group[name] = data[name];
+  }
+  return groups;
+}
+
+async function writePerLetterFiles(
+  dir: string,
+  data: Record<string, unknown>,
+  names: string[],
+  metadata: Record<string, unknown>,
+): Promise<number> {
+  await fs.mkdir(dir, { recursive: true });
+  const groups = groupByLetter(data, names);
+
+  const sizes = await Promise.all(
+    [...groups.entries()].map(([letter, group]) =>
+      writeJsonFile(path.join(dir, `${letter}.json`), {
+        data: group,
+        metadata,
+      }),
+    ),
+  );
+  const totalSize = sizes.reduce((sum, s) => sum + s, 0);
+
+  // Write an index file listing available letters
+  const letters = [...groups.keys()].sort();
+  await fs.writeFile(path.join(dir, "index.json"), JSON.stringify(letters));
+
+  return totalSize;
 }
 
 async function writeOutputFiles(
@@ -239,26 +244,25 @@ async function writeOutputFiles(
     },
   );
 
-  const yearlySize = await writeJsonFile(
-    path.join(outputDir, "names-yearly.json"),
-    {
-      data: Object.fromEntries(
-        sortedNames.map((name: string) => [name, yearlyData[name]]),
-      ),
-      metadata,
-    },
+  const yearlySize = await writePerLetterFiles(
+    path.join(outputDir, "yearly"),
+    yearlyData,
+    sortedNames,
+    metadata,
   );
 
-  console.log("Computing yearly ranks...");
-  const yearlyRanksSize = await writeJsonFile(
-    path.join(outputDir, "names-yearly-ranks.json"),
-    { data: computeYearlyRanks(yearlyData, sortedNames), metadata },
+  const yearlyRanksSize = await writePerLetterFiles(
+    path.join(outputDir, "yearly-ranks"),
+    computeYearlyRanks(yearlyData, sortedNames),
+    sortedNames,
+    metadata,
   );
 
-  console.log(`\nData processing complete!`);
-  console.log(`Aggregate: ${(aggregateSize / 1024).toFixed(1)} KB`);
-  console.log(`Yearly: ${(yearlySize / 1024 / 1024).toFixed(1)} MB`);
-  console.log(`Yearly Ranks: ${(yearlyRanksSize / 1024).toFixed(1)} KB`);
+  console.log(
+    `Done: aggregate ${(aggregateSize / 1024).toFixed(0)} KB, ` +
+      `yearly ${(yearlySize / 1024 / 1024).toFixed(1)} MB, ` +
+      `ranks ${(yearlyRanksSize / 1024 / 1024).toFixed(1)} MB`,
+  );
 }
 
 async function processData(): Promise<void> {
@@ -268,13 +272,10 @@ async function processData(): Promise<void> {
   console.log(`Reading ${xlsxPath}...`);
   const workbook = XLSX.readFile(xlsxPath);
 
-  console.log("Processing girls data...");
   const { aggregate: girlsAggregate, yearly: girlsYearly } = processRows(
     readSheetRows(workbook, "Table_1"),
     "girls",
   );
-
-  console.log("Processing boys data...");
   const { aggregate: boysAggregate, yearly: boysYearly } = processRows(
     readSheetRows(workbook, "Table_2"),
     "boys",

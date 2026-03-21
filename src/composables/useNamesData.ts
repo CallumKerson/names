@@ -10,50 +10,36 @@ import type {
 import { computeNameData, computeRankings } from "@/utils/calculations";
 
 let aggregatePromise: Promise<NamesDataset> | undefined;
-let yearlyPromise: Promise<NamesYearlyDataset> | undefined;
-let yearlyRanksPromise: Promise<NamesYearlyDataset> | undefined;
 let allNamesPromise: Promise<NameDataComputed[]> | undefined;
 let computedRankings: Map<string, Ranks> | undefined;
+const yearlyLetterCache = new Map<string, Promise<NamesYearlyDataset>>();
+const yearlyRanksLetterCache = new Map<string, Promise<NamesYearlyDataset>>();
 const yearlyLoadedNames = new Map<string, Promise<void>>();
 
+function isObjectWithKeys(data: unknown, keys: string[]): boolean {
+  if (typeof data !== "object" || data === null) return false;
+  return keys.every((k) => {
+    if (!(k in data)) return false;
+    const val: unknown = Reflect.get(data, k);
+    return typeof val === "object" && val !== null;
+  });
+}
+
 function isNamesDataset(data: unknown): data is NamesDataset {
-  if (
-    typeof data !== "object" ||
-    data === null ||
-    !("metadata" in data) ||
-    !("names" in data)
-  ) {
-    return false;
-  }
-  const obj = data as Record<string, unknown>;
-  return (
-    typeof obj.metadata === "object" &&
-    obj.metadata !== null &&
-    typeof obj.names === "object" &&
-    obj.names !== null
-  );
+  return isObjectWithKeys(data, ["metadata", "names"]);
 }
 
 function isNamesYearlyDataset(data: unknown): data is NamesYearlyDataset {
-  if (
-    typeof data !== "object" ||
-    data === null ||
-    !("metadata" in data) ||
-    !("data" in data)
-  ) {
-    return false;
-  }
-  const obj = data as Record<string, unknown>;
-  return (
-    typeof obj.metadata === "object" &&
-    obj.metadata !== null &&
-    typeof obj.data === "object" &&
-    obj.data !== null
-  );
+  return isObjectWithKeys(data, ["metadata", "data"]);
 }
 
 const isLoading = ref(false);
 const loadError = ref<string | null>(null);
+
+function getLetterKey(name: string): string {
+  const first = name.charAt(0).toUpperCase();
+  return /[A-Z]/.test(first) ? first.toLowerCase() : "_";
+}
 
 function loadAggregateData(): Promise<NamesDataset> {
   return (aggregatePromise ??= (async () => {
@@ -81,35 +67,48 @@ function loadAggregateData(): Promise<NamesDataset> {
   })());
 }
 
-function loadYearlyDataset(): Promise<NamesYearlyDataset> {
-  return (yearlyPromise ??= (async () => {
+function loadLetterFile(
+  subdir: string,
+  letter: string,
+  cache: Map<string, Promise<NamesYearlyDataset>>,
+): Promise<NamesYearlyDataset> {
+  let promise = cache.get(letter);
+  if (promise) return promise;
+
+  promise = (async () => {
     try {
       const response = await fetch(
-        `${import.meta.env.BASE_URL}data/names-yearly.json`,
+        `${import.meta.env.BASE_URL}data/${subdir}/${letter}.json`,
       );
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}`);
       }
       const data = (await response.json()) as unknown;
       if (!isNamesYearlyDataset(data)) {
-        throw new Error("Invalid yearly data structure");
+        throw new Error(`Invalid ${subdir} data structure`);
       }
       return markRaw(data);
     } catch (error: unknown) {
-      yearlyPromise = undefined;
+      cache.delete(letter);
       const message =
-        error instanceof Error ? error.message : "Failed to load yearly data";
+        error instanceof Error
+          ? error.message
+          : `Failed to load ${subdir} data`;
       loadError.value = message;
       throw new Error(message, { cause: error });
     }
-  })());
+  })();
+
+  cache.set(letter, promise);
+  return promise;
 }
 
 async function loadYearlyForName(
   name: string,
   nameData: NameData,
 ): Promise<void> {
-  const yearly = await loadYearlyDataset();
+  const letter = getLetterKey(name);
+  const yearly = await loadLetterFile("yearly", letter, yearlyLetterCache);
   const yearlyRecord = yearly.data[name];
 
   if (yearlyRecord) {
@@ -211,32 +210,6 @@ export async function getMetadata() {
   return aggregate.metadata;
 }
 
-function loadYearlyRanks(): Promise<NamesYearlyDataset> {
-  return (yearlyRanksPromise ??= (async () => {
-    try {
-      const response = await fetch(
-        `${import.meta.env.BASE_URL}data/names-yearly-ranks.json`,
-      );
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`);
-      }
-      const data = (await response.json()) as unknown;
-      if (!isNamesYearlyDataset(data)) {
-        throw new Error("Invalid yearly ranks data structure");
-      }
-      return markRaw(data);
-    } catch (error: unknown) {
-      yearlyRanksPromise = undefined;
-      const message =
-        error instanceof Error
-          ? error.message
-          : "Failed to load yearly ranks data";
-      loadError.value = message;
-      throw new Error(message, { cause: error });
-    }
-  })());
-}
-
 /**
  * Get yearly ranks for a specific name.
  */
@@ -244,7 +217,12 @@ export async function getYearlyRanks(
   name: string,
 ): Promise<Record<number, number>> {
   try {
-    const ranks = await loadYearlyRanks();
+    const letter = getLetterKey(name);
+    const ranks = await loadLetterFile(
+      "yearly-ranks",
+      letter,
+      yearlyRanksLetterCache,
+    );
     return ranks.data[name] ?? {};
   } catch (error) {
     console.error("Failed to load yearly ranks:", error);
@@ -253,10 +231,34 @@ export async function getYearlyRanks(
 }
 
 /**
- * Get the full yearly dataset for bulk analysis.
+ * Get the full yearly dataset by loading and merging all per-letter files.
  */
-export function getYearlyDataset(): Promise<NamesYearlyDataset> {
-  return loadYearlyDataset();
+export async function getYearlyDataset(): Promise<NamesYearlyDataset> {
+  const indexResponse = await fetch(
+    `${import.meta.env.BASE_URL}data/yearly/index.json`,
+  );
+  const letters: unknown = await indexResponse.json();
+  if (!Array.isArray(letters)) {
+    throw new Error("Invalid yearly index data");
+  }
+
+  const letterDatasets = await Promise.all(
+    letters.map((letter: string) =>
+      loadLetterFile("yearly", letter, yearlyLetterCache),
+    ),
+  );
+
+  const metadata = await getMetadata();
+  const merged: NamesYearlyDataset = {
+    data: {},
+    metadata,
+  };
+
+  for (const dataset of letterDatasets) {
+    Object.assign(merged.data, dataset.data);
+  }
+
+  return merged;
 }
 
 /**

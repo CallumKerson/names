@@ -237,3 +237,5 @@ dist-ssr
 
 # Generated files
 public/data/names-*.json
+public/data/yearly/
+public/data/yearly-ranks/

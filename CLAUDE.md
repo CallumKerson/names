@@ -35,8 +35,8 @@ XLSX file `data/babynames1996to2024.xlsx` â†’ `scripts/process-names-data.ts` â†
 
 - **`names-aggregate.json`** (~300KB): Contains aggregate totals for all names (used for initial
   page loads)
-- **`names-yearly.json`** (~8MB): Contains year-by-year breakdowns (loaded on-demand for charts)
-- **`names-yearly-ranks.json`**: Pre-computed per-year rankings by total count
+- **`yearly/{letter}.json`**: Per-letter yearly breakdowns (loaded on-demand for charts)
+- **`yearly-ranks/{letter}.json`**: Per-letter pre-computed yearly rankings by total count
 
 The processing script:
 
@@ -51,10 +51,8 @@ The processing script:
 
 1. **Module-level cache**: Data loaded once and shared across all component instances
 2. **Aggregate-first loading**: Small aggregate file loads immediately
-3. **Lazy yearly data**: Large yearly file only loaded when charts are needed, then cached
-
-This pattern keeps initial page loads fast (<1s) while still providing detailed historical charts
-when requested.
+3. **Per-letter lazy loading**: Yearly data split by first letter, loaded on-demand per name and
+   cached. Only the letters actually viewed are fetched, keeping typical session transfers small.
 
 ## Code Architecture
 
