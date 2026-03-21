@@ -12,7 +12,7 @@ import {
   Title,
   Tooltip,
 } from "chart.js";
-import { computed } from "vue";
+import { computed, onBeforeUnmount, onMounted, ref } from "vue";
 import { Line } from "vue-chartjs";
 
 ChartJS.register(
@@ -126,8 +126,21 @@ const chartData = computed<ChartData<"line">>(() => {
 });
 
 
+const isMobile = ref(window.innerWidth <= 768);
+
+
+function onResize() {
+  isMobile.value = window.innerWidth <= 768;
+}
+
+
+onMounted(() => window.addEventListener("resize", onResize));
+onBeforeUnmount(() => window.removeEventListener("resize", onResize));
+
+
 const chartOptions = computed(() => {
   const options: Record<string, unknown> = {
+    aspectRatio: isMobile.value ? 1 : 2,
     maintainAspectRatio: true,
     onClick: handleChartClick,
     plugins: {
