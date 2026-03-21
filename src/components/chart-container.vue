@@ -12,7 +12,7 @@ import {
   Title,
   Tooltip,
 } from "chart.js";
-import { computed, onBeforeUnmount, onMounted, ref } from "vue";
+import { computed } from "vue";
 import { Line } from "vue-chartjs";
 
 ChartJS.register(
@@ -96,7 +96,8 @@ const chartData = computed<ChartData<"line">>(() => {
     fill: true,
     label: props.title,
     pointBackgroundColor: props.color,
-    pointHoverRadius: 5,
+    pointHitRadius: 20,
+    pointHoverRadius: 6,
     pointRadius: 3,
     tension: 0.4,
   };
@@ -126,65 +127,37 @@ const chartData = computed<ChartData<"line">>(() => {
 });
 
 
-const isMobile = ref(window.innerWidth <= 768);
-
-
-function onResize() {
-  isMobile.value = window.innerWidth <= 768;
-}
-
-
-onMounted(() => window.addEventListener("resize", onResize));
-onBeforeUnmount(() => window.removeEventListener("resize", onResize));
-
-
-const chartOptions = computed(() => {
-  const options: Record<string, unknown> = {
-    aspectRatio: isMobile.value ? 1 : 2,
-    maintainAspectRatio: true,
+function buildBaseOptions(
+  title: string,
+  yAxisLabel: string,
+): Record<string, unknown> {
+  return {
+    interaction: { intersect: false, mode: "nearest" as const },
+    maintainAspectRatio: false,
     onClick: handleChartClick,
     plugins: {
-      legend: {
-        display: true,
-        position: "top" as const,
-      },
+      legend: { display: true, position: "top" as const },
       title: {
         display: true,
-        font: {
-          size: 14 as number,
-          weight: "bold" as const,
-        },
-        text: props.title,
+        font: { size: 14 as number, weight: "bold" as const },
+        text: title,
       },
-      tooltip: {
-        callbacks: {
-          afterLabel: getTooltipAfterLabel,
-        },
-      },
+      tooltip: { callbacks: { afterLabel: getTooltipAfterLabel } },
     },
     responsive: true,
     scales: {
-      x: {
-        title: {
-          display: true,
-          text: "Year",
-        },
-      },
-      y: {
-        title: {
-          display: true,
-          text: props.yAxisLabel,
-        },
-      },
+      x: { title: { display: true, text: "Year" } },
+      y: { title: { display: true, text: yAxisLabel } },
     },
   };
+}
 
+
+const chartOptions = computed(() => {
+  const options = buildBaseOptions(props.title, props.yAxisLabel);
   if (props.gradientColor) {
-    options.segment = {
-      borderColor: getSegmentBorderColor,
-    };
+    options.segment = { borderColor: getSegmentBorderColor };
   }
-
   return options;
 });
 </script>
@@ -203,5 +176,12 @@ const chartOptions = computed(() => {
   border: 1px solid #e0e0e0;
   margin: 1.5rem 0;
   cursor: pointer;
+  height: 400px;
+}
+
+@media (max-width: 768px) and (orientation: portrait) {
+  .chart-container {
+    height: 300px;
+  }
 }
 </style>
