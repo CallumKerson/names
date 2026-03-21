@@ -238,7 +238,8 @@ const goToName = (name: string) => {
     font-size: 0.85rem;
   }
 
-  .rank-detail-col {
+  .rank-detail-col,
+  .count-col {
     display: none;
   }
 }
