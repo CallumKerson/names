@@ -34,6 +34,10 @@ checksum = "sha256:b3cb8ab5958393faacefabfb3a402060eb256b1fda8e1f83c74c3fc877ebf
 url = "https://github.com/jdx/hk/releases/download/v2.0.1/hk-x86_64-pc-windows-msvc.zip"
 url_api = "https://api.github.com/repos/jdx/hk/releases/assets/566307877"
 
+[[tools.node]]
+version = "24.18.1"
+backend = "core:node"
+
 [[tools."npm:oxfmt"]]
 version = "0.41.0"
 backend = "npm:oxfmt"
