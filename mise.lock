@@ -48,7 +48,7 @@ backend = "npm:oxlint-tsgolint"
 
 [[tools.oxlint]]
 version = "1.56.0"
-backend = "npm:oxlint"
+backend = "aqua:oxc-project/oxc/oxlint"
 
 [[tools.pkl]]
 version = "0.31.0"
